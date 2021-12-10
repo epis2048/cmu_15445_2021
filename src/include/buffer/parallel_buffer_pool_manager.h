@@ -12,7 +12,10 @@
 
 #pragma once
 
+#include <vector>
+
 #include "buffer/buffer_pool_manager.h"
+#include "buffer/buffer_pool_manager_instance.h"
 #include "recovery/log_manager.h"
 #include "storage/disk/disk_manager.h"
 #include "storage/page/page.h"
@@ -40,6 +43,22 @@ class ParallelBufferPoolManager : public BufferPoolManager {
   size_t GetPoolSize() override;
 
  protected:
+  /** 实例的数量 */
+  size_t num_instances_;
+  /** 每个实例的容量 */
+  size_t pool_size_;
+  /** RR法插入页面时，下一个要插入的位置*/
+  size_t next_instance_;
+  /** 锁 */
+  std::mutex latch_;
+  /** 实例s */
+  std::vector<BufferPoolManagerInstance *> managers_;
+  // BufferPoolManager **managers_;
+  /** Pointer to the disk manager. */
+  // DiskManager *disk_manager_ __attribute__((__unused__));
+  /** Pointer to the log manager. */
+  // LogManager *log_manager_ __attribute__((__unused__));
+
   /**
    * @param page_id id of page
    * @return pointer to the BufferPoolManager responsible for handling given page id

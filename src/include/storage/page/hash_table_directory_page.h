@@ -22,6 +22,8 @@
 
 namespace bustub {
 
+#define MAX_BUCKET_DEPTH 9
+
 /**
  *
  * Directory Page for extendible hash table.
@@ -169,7 +171,7 @@ class HashTableDirectoryPage {
    * @param bucket_idx bucket index to lookup
    * @return the high bit corresponding to the bucket's local depth
    */
-  uint32_t GetLocalHighBit(uint32_t bucket_idx);
+  // uint32_t GetLocalHighBit(uint32_t bucket_idx);
 
   /**
    * VerifyIntegrity
