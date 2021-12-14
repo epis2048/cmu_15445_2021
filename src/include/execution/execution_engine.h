@@ -66,6 +66,8 @@ class ExecutionEngine {
       }
     } catch (Exception &e) {
       // TODO(student): handle exceptions
+      throw Exception(ExceptionType::UNKNOWN_TYPE, "InsertExecutor:child execute error.");
+      return false;
     }
 
     return true;

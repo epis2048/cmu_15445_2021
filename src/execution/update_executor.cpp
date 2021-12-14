@@ -17,11 +17,35 @@ namespace bustub {
 
 UpdateExecutor::UpdateExecutor(ExecutorContext *exec_ctx, const UpdatePlanNode *plan,
                                std::unique_ptr<AbstractExecutor> &&child_executor)
-    : AbstractExecutor(exec_ctx) {}
+    : AbstractExecutor(exec_ctx), plan_(plan), child_executor_(std::move(child_executor)) {}
 
-void UpdateExecutor::Init() {}
+void UpdateExecutor::Init() {
+  table_info_ = exec_ctx_->GetCatalog()->GetTable(plan_->TableOid());
+  child_executor_->Init();
+}
 
-bool UpdateExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) { return false; }
+bool UpdateExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) {
+  Tuple old_tuple;
+  Tuple new_tuple;
+  RID tuple_rid;
+  while (true) {
+    // 执行子查询
+    try {
+      if (!child_executor_->Next(&old_tuple, &tuple_rid)) {
+        break;
+      }
+    } catch (Exception &e) {  // 接住Exception接着往上抛
+      throw Exception(ExceptionType::UNKNOWN_TYPE, "UpdateExecutor:child execute error.");
+      return false;
+    }
+
+    // 更新记录
+    new_tuple = GenerateUpdatedTuple(old_tuple);
+    TableHeap *table_heap = table_info_->table_.get();
+    table_heap->UpdateTuple(new_tuple, tuple_rid, exec_ctx_->GetTransaction());
+  }
+  return false;
+}
 
 Tuple UpdateExecutor::GenerateUpdatedTuple(const Tuple &src_tuple) {
   const auto &update_attrs = plan_->GetUpdateAttr();
