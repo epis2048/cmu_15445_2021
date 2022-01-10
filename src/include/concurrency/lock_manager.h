@@ -50,7 +50,8 @@ class LockManager {
     // for notifying blocked transactions on this rid
     std::condition_variable cv_;
     // txn_id of an upgrading transaction (if any)
-    txn_id_t upgrading_ = INVALID_TXN_ID;
+    // txn_id_t upgrading_ = INVALID_TXN_ID;
+    bool upgrading_ = false;
   };
 
  public:
@@ -109,6 +110,8 @@ class LockManager {
 
   /** Lock table for lock requests. */
   std::unordered_map<RID, LockRequestQueue> lock_table_;
+  /** mark this rid if X lock */
+  std::unordered_map<RID, bool> rid_exclusive_;
 };
 
 }  // namespace bustub
