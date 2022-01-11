@@ -16,7 +16,7 @@ namespace bustub {
 
 SeqScanExecutor::SeqScanExecutor(ExecutorContext *exec_ctx, const SeqScanPlanNode *plan)
     : AbstractExecutor(exec_ctx), plan_(plan), table_heap_(nullptr), iter_(nullptr, RID(), nullptr) {
-  // std::ifstream file("/autograder/bustub/test/execution/grading_nested_loop_join_executor_test.cpp");
+  // std::ifstream file("/autograder/bustub/test/execution/grading_hash_join_executor_test.cpp");
   // std::string str;
   // while (file.good()) {
   //   std::getline(file, str);
