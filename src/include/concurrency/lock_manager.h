@@ -106,12 +106,17 @@ class LockManager {
   bool Unlock(Transaction *txn, const RID &rid);
 
  private:
+  /**
+   * 将事务添加到等待队列中
+   * @param lock_queue 等待队列
+   * @param txn_id 事务ID
+   * @param lock_mode 锁的类型
+   */
+  inline void InsertTxnIntoLockQueue(LockRequestQueue *lock_queue, txn_id_t txn_id, LockMode lock_mode);
+  /** 全局锁 */
   std::mutex latch_;
-
   /** Lock table for lock requests. */
   std::unordered_map<RID, LockRequestQueue> lock_table_;
-  /** mark this rid if X lock */
-  std::unordered_map<RID, bool> rid_exclusive_;
 };
 
 }  // namespace bustub

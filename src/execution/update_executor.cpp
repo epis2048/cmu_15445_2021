@@ -28,6 +28,8 @@ bool UpdateExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) {
   Tuple old_tuple;
   Tuple new_tuple;
   RID tuple_rid;
+  Transaction *transaction = GetExecutorContext()->GetTransaction();
+  LockManager *lock_mgr = GetExecutorContext()->GetLockManager();
   while (true) {
     // 执行子查询
     try {
@@ -39,10 +41,41 @@ bool UpdateExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) {
       return false;
     }
 
+    // 加锁
+    if (lock_mgr != nullptr) {
+      if (transaction->IsSharedLocked(tuple_rid)) {
+        lock_mgr->LockUpgrade(transaction, tuple_rid);
+      } else if (!transaction->IsExclusiveLocked(tuple_rid)) {
+        lock_mgr->LockExclusive(transaction, tuple_rid);
+      }
+    }
+
     // 更新记录
     new_tuple = GenerateUpdatedTuple(old_tuple);
     TableHeap *table_heap = table_info_->table_.get();
     table_heap->UpdateTuple(new_tuple, tuple_rid, exec_ctx_->GetTransaction());
+
+    // 还要更新索引
+    for (const auto &index : exec_ctx_->GetCatalog()->GetTableIndexes(table_info_->name_)) {
+      // 先删旧索引后增新索引
+      auto index_info = index->index_.get();
+      index_info->DeleteEntry(
+          old_tuple.KeyFromTuple(table_info_->schema_, *index_info->GetKeySchema(), index_info->GetKeyAttrs()),
+          tuple_rid, exec_ctx_->GetTransaction());
+      index_info->InsertEntry(
+          new_tuple.KeyFromTuple(table_info_->schema_, *index_info->GetKeySchema(), index_info->GetKeyAttrs()),
+          tuple_rid, exec_ctx_->GetTransaction());
+      // 在事务中记录下变更
+      IndexWriteRecord write_record(tuple_rid, table_info_->oid_, WType::DELETE, new_tuple, index->index_oid_,
+                                    exec_ctx_->GetCatalog());
+      write_record.old_tuple_ = old_tuple;
+      transaction->GetIndexWriteSet()->emplace_back(write_record);
+    }
+
+    // 解锁
+    if (transaction->GetIsolationLevel() == IsolationLevel::READ_COMMITTED && lock_mgr != nullptr) {
+      lock_mgr->Unlock(transaction, tuple_rid);
+    }
   }
   return false;
 }

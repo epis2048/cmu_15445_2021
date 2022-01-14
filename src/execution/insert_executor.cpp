@@ -65,11 +65,31 @@ void InsertExecutor::InsertIntoTableWithIndex(Tuple *cur_tuple) {
     throw Exception(ExceptionType::OUT_OF_MEMORY, "InsertExecutor:no enough space for this tuple.");
   }
 
-  // 更新索引
+  // 加锁
+  Transaction *transaction = GetExecutorContext()->GetTransaction();
+  LockManager *lock_mgr = GetExecutorContext()->GetLockManager();
+  if (lock_mgr != nullptr) {
+    if (transaction->IsSharedLocked(cur_rid)) {
+      lock_mgr->LockUpgrade(transaction, cur_rid);
+    } else if (!transaction->IsExclusiveLocked(cur_rid)) {
+      lock_mgr->LockExclusive(transaction, cur_rid);
+    }
+  }
+
+  // 还要更新索引
   for (const auto &index : catalog_->GetTableIndexes(table_info_->name_)) {
+    // 增加索引
     index->index_->InsertEntry(
         cur_tuple->KeyFromTuple(table_info_->schema_, *index->index_->GetKeySchema(), index->index_->GetKeyAttrs()),
         cur_rid, exec_ctx_->GetTransaction());
+    // 在事务中记录下变更
+    transaction->GetIndexWriteSet()->emplace_back(IndexWriteRecord(
+        cur_rid, table_info_->oid_, WType::INSERT, *cur_tuple, index->index_oid_, exec_ctx_->GetCatalog()));
+  }
+
+  // 解锁
+  if (transaction->GetIsolationLevel() == IsolationLevel::READ_COMMITTED && lock_mgr != nullptr) {
+    lock_mgr->Unlock(transaction, cur_rid);
   }
 }
 
